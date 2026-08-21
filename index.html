@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>노인 맞춤형 길찾기 서비스</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- 카카오 지도 SDK -->
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=50b7067c4eda894c424bbcf3d68b6260&libraries=services"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>노인 맞춤형 길찾기</h2>
+      
+      <!-- 1. 프로필 설정 -->
+      <div class="section">
+        <h3>1. 개인 이동 프로필</h3>
+        <label><input type="checkbox" id="stairs" checked> 계단 이용이 어려움</label><br>
+        <label><input type="checkbox" id="slope" checked> 오르막/경사 어려움</label><br>
+        <label><input type="checkbox" id="longWalk" checked> 장거리 걷기 어려움</label><br>
+        <label><input type="checkbox" id="crowded"> 혼잡한 곳 피함</label>
+      </div>
+
+      <!-- 2. 이동 수단 선택 -->
+      <div class="section">
+        <h3>2. 이동 수단 선택</h3>
+        <select id="transportType">
+          <option value="transit">대중교통 전체 (버스+지하철)</option>
+          <option value="bus">버스 위주</option>
+          <option value="subway">지하철 위주</option>
+          <option value="walk">도보 전용</option>
+        </select>
+      </div>
+
+      <!-- 3. 장소 검색 -->
+      <div class="section">
+        <h3>3. 출발지 / 도착지 검색</h3>
+        <input type="text" id="origin" placeholder="출발지 (예: 서울역)" value="서울역">
+        <input type="text" id="destination" placeholder="도착지 (예: 시청역)" value="시청역">
+        
+        <button onclick="searchRoute()">맞춤 경로 찾기</button>
+      </div>
+
+      <!-- 4. 경로 추천 결과 -->
+      <div class="section">
+        <h3>4. 경로 선택 및 분석</h3>
+        <div id="routeList">출발지와 도착지를 입력 후 검색해주세요.</div>
+      </div>
+    </div>
+
+    <!-- 카카오 지도 영역 -->
+    <div id="map" style="flex: 1; height: 100vh;"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
