@@ -1,4 +1,11 @@
 {
+  "name": "elderly-route-finder",
+  "version": "1.0.0",
+  "description": "노인 맞춤형 길찾기 서비스",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "axios": "^1.19.0",
