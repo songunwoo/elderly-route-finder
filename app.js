@@ -63,7 +63,7 @@ async function searchRoute() {
       crowded: document.getElementById('crowded').checked,
     };
 
-    const response = await fetch('http://localhost:3000/api/routes', {
+    const response = await fetch('https://edlerlyroutefinder.onrender.com/api/routes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
