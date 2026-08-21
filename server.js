@@ -9,6 +9,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use(express.static(__dirname));
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // 이동 수단별 평균 속도 및 대기시간 기반 소요 시간(분) 계산 함수
