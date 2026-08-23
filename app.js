@@ -4,6 +4,7 @@ let currentPolyline = null;
 let currentMarkers = [];
 let facilityMarkers = []; // 주변 시설 마커 저장 배열
 let userLocationMarker = null; // 사용자 현재 위치 마커
+let activeFacilityInfowindow = null; // 현재 열려있는 시설 인포윈도우
 
 let lastSearchData = null;
 let currentOrigin = null;
@@ -40,7 +41,7 @@ function initUserLocation() {
         const locPosition = new kakao.maps.LatLng(lat, lng);
         map.setCenter(locPosition);
 
-        // 현재 위치 빨간색 마커 아이콘 표시
+        // 현재 위치 마커 표시
         if (userLocationMarker) userLocationMarker.setMap(null);
         userLocationMarker = new kakao.maps.Marker({
           map: map,
@@ -90,7 +91,6 @@ function setOriginToCurrentLocation() {
 function searchNearbyFacilities(type) {
   clearFacilityMarkers();
 
-  // 검색 중심점 (현재 GPS 위치가 있으면 GPS 중심, 없으면 지도 현재 중심)
   const center = userCoords 
     ? new kakao.maps.LatLng(userCoords.lat, userCoords.lng)
     : map.getCenter();
@@ -101,18 +101,16 @@ function searchNearbyFacilities(type) {
   };
 
   if (type === 'medical') {
-    // 의료 및 보건 시설: 카테고리 검색 (HP8: 병원, PM9: 약국)
     ps.categorySearch('HP8', (data, status) => displayFacilityResults(data, status, '🏥'), options);
     ps.categorySearch('PM9', (data, status) => displayFacilityResults(data, status, '💊'), options);
   } else if (type === 'senior') {
-    // 노인 복지 시설 키워드 검색
     ps.keywordSearch('경로당', (data, status) => displayFacilityResults(data, status, '👵'), options);
     ps.keywordSearch('노인복지관', (data, status) => displayFacilityResults(data, status, '🏢'), options);
     ps.keywordSearch('노인주간보호센터', (data, status) => displayFacilityResults(data, status, '🏥'), options);
   }
 }
 
-// 검색된 주변 시설 마커 생성
+// 검색된 주변 시설 마커 생성 및 클릭/터치 이벤트 설정
 function displayFacilityResults(data, status, iconEmoji) {
   if (status === kakao.maps.services.Status.OK) {
     data.forEach(place => {
@@ -122,20 +120,85 @@ function displayFacilityResults(data, status, iconEmoji) {
         position: position
       });
 
+      // 마커 클릭 시 나타날 팝업창(인포윈도우) HTML
+      const contentHtml = `
+        <div style="padding:10px; width:210px; font-size:12px; line-height:1.4; text-align:center;">
+          <div style="font-weight:bold; font-size:13px; margin-bottom:3px; color:#333;">
+            ${iconEmoji} ${place.place_name}
+          </div>
+          <div style="color:#666; font-size:11px; margin-bottom:8px;">
+            ${place.road_address_name || place.address_name}
+          </div>
+          <div style="font-weight:bold; color:#007bff; margin-bottom:8px;">
+            이 시설로 이동하시겠습니까?
+          </div>
+          <div style="display:flex; justify-content:center; gap:6px;">
+            <button class="info-pop-btn info-btn-confirm" onclick="setAsDestination('${escapeString(place.place_name)}', '${place.x}', '${place.y}')">
+              이동할게요
+            </button>
+            <button class="info-pop-btn info-btn-cancel" onclick="closeFacilityInfowindow()">
+              취소
+            </button>
+          </div>
+        </div>
+      `;
+
       const infowindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:5px;font-size:12px;">${iconEmoji} <strong>${place.place_name}</strong><br><span style="color:#666;font-size:11px;">${place.road_address_name || place.address_name}</span></div>`
+        content: contentHtml,
+        removable: true
       });
 
-      kakao.maps.event.addListener(marker, 'mouseover', () => infowindow.open(map, marker));
-      kakao.maps.event.addListener(marker, 'mouseout', () => infowindow.close());
+      // 마커 클릭/터치 시 팝업 열기
+      kakao.maps.event.addListener(marker, 'click', () => {
+        if (activeFacilityInfowindow) {
+          activeFacilityInfowindow.close();
+        }
+        infowindow.open(map, marker);
+        activeFacilityInfowindow = infowindow;
+      });
 
       facilityMarkers.push(marker);
     });
   }
 }
 
-// 시설 마커 지우기
+// 특수문자 및 작은따옴표 치환 함수 (HTML 깨짐 방지)
+function escapeString(str) {
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// 인포윈도우 닫기
+function closeFacilityInfowindow() {
+  if (activeFacilityInfowindow) {
+    activeFacilityInfowindow.close();
+    activeFacilityInfowindow = null;
+  }
+}
+
+// '이동할게요' 누를 시 도착지 입력 및 경로 자동 탐색
+function setAsDestination(name, x, y) {
+  document.getElementById('destination').value = name;
+  currentDestination = {
+    name: name,
+    x: x,
+    y: y
+  };
+
+  closeFacilityInfowindow();
+  
+  // 출발지가 비어있고 현재 GPS 좌표가 존재하면 자동으로 현재위치 설정
+  const originVal = document.getElementById('origin').value.trim();
+  if (!originVal && userCoords) {
+    setOriginToCurrentLocation();
+  }
+
+  // 경로 검색 자동 실행
+  searchRoute();
+}
+
+// 시설 마커 모두 지우기
 function clearFacilityMarkers() {
+  closeFacilityInfowindow();
   facilityMarkers.forEach(marker => marker.setMap(null));
   facilityMarkers = [];
 }
@@ -147,7 +210,6 @@ function searchPlace(keyword) {
       return;
     }
 
-    // 현재 위치로 출발지가 설정되어 이미 좌표가 입력되어 있는 경우
     if (keyword === '현재 위치' && currentOrigin) {
       resolve(currentOrigin);
       return;
@@ -178,8 +240,15 @@ async function searchRoute() {
   }
 
   try {
-    currentOrigin = await searchPlace(originName);
-    currentDestination = await searchPlace(destName);
+    // 출발지 좌표 얻기
+    if (!currentOrigin || currentOrigin.name !== originName) {
+      currentOrigin = await searchPlace(originName);
+    }
+    
+    // 도착지 좌표 얻기 (마커로 이미 지정된 경우 재검색 없이 직전 좌표 사용)
+    if (!currentDestination || currentDestination.name !== destName) {
+      currentDestination = await searchPlace(destName);
+    }
 
     const profile = {
       stairs: document.getElementById('stairs').checked,
