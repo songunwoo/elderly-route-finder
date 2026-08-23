@@ -16,21 +16,21 @@
       
       <!-- 1. 프로필 설정 -->
       <div class="section">
-        <h3>1. 개인 이동 프로필</h3>
+        <h3>1. 개인 맞춤형 프로필</h3>
         <label><input type="checkbox" id="stairs" checked> 계단 이용이 어려움</label><br>
         <label><input type="checkbox" id="slope" checked> 오르막/경사 어려움</label><br>
         <label><input type="checkbox" id="longWalk" checked> 장거리 걷기 어려움</label><br>
         <label><input type="checkbox" id="crowded"> 혼잡한 곳 피함</label>
       </div>
 
-      <!-- 2. 이동 수단 선택 -->
+      <!-- 2. 이동 수단 선택 (기본값: 도보 위주) -->
       <div class="section">
         <h3>2. 이동 수단 선택</h3>
         <select id="transportType">
-          <option value="transit">전체이용(버스+지하철+도보)</option>
+          <option value="walk" selected>도보 위주</option>
           <option value="bus">버스 위주</option>
           <option value="subway">지하철 위주</option>
-          <option value="walk">도보 전용</option>
+          <option value="transit">전체 (버스+지하철+도보)</option>
         </select>
       </div>
 
@@ -49,10 +49,10 @@
       <!-- 4. 주변 시설 탐색 (반경 1.5km) -->
       <div class="section">
         <h3>4. 주변 시설 찾기 (반경 1.5km)</h3>
-        <button onclick="moveToCurrentLocation()" class="btn-location">📍 내 현재 위치로 지도 이동</button>
+        <button onclick="moveToCurrentLocation()" class="btn-location">📍 현재 위치로 이동</button>
         <div class="facility-btn-group">
-          <button onclick="searchNearbyFacilities('medical')" class="btn-facility">🏥 의료/보건 시설</button>
-          <button onclick="searchNearbyFacilities('senior')" class="btn-facility">👵 경로당 / 복지관</button>
+          <button onclick="searchNearbyFacilities('medical')" class="btn-facility">🏥 병원/약국</button>
+          <button onclick="searchNearbyFacilities('senior')" class="btn-facility">👵 경로당/쉼터/복지센터</button>
           <button onclick="clearFacilityMarkers()" class="btn-clear">🧹 마커 지우기</button>
         </div>
       </div>
@@ -60,7 +60,7 @@
       <!-- 5. 경로 추천 결과 -->
       <div class="section">
         <h3>5. 경로 선택 및 분석</h3>
-        <div id="routeList">출발지와 도착지를 입력 후 검색해주세요.</div>
+        <div id="routeList">출발지와 도착지를 모두 입력 후 검색해주세요.</div>
       </div>
     </div>
 
