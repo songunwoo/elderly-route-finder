@@ -9,8 +9,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 1. 현재 폴더의 정적 파일(index.html, style.css, app.js 등) 제공
 app.use(express.static(__dirname));
 
+// Supabase 클라이언트 생성
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // 이동 수단별 평균 속도 및 대기시간 기반 소요 시간(분) 계산 함수
@@ -56,10 +58,12 @@ function calculateDifficulty(route, profile, transportType) {
   return Math.min(score, 100);
 }
 
+// 메인 루트 요청 시 index.html 보냄
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// 경로 검색 API
 app.post('/api/routes', async (req, res) => {
   try {
     const { origin, destination, transportType, profile } = req.body;
@@ -72,34 +76,65 @@ app.post('/api/routes', async (req, res) => {
       crowded_difficult: profile.crowded
     }]);
 
-    // 카카오 길찾기 API 호출 (경로 뼈대 데이터 수집)
-    const kakaoUrl = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.x},${origin.y}&destination=${destination.x},${destination.y}`;
-    
-    const kakaoRes = await axios.get(kakaoUrl, {
-      headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` }
-    });
+    let pathCoordinates = [];
+    let baseDistance = 0;
 
-    const routeData = kakaoRes.data.routes[0];
-    if (!routeData || routeData.result_code !== 0) {
-      return res.status(400).json({ error: '경로를 찾을 수 없습니다.' });
+    // ★ 이동 수단별 경로 분기 처리
+    if (transportType === 'walk') {
+      // 1. 도보 선택 시: 두 장소 간 직선 거리 계산 (미터 단위)
+      const lat1 = Number(origin.y);
+      const lon1 = Number(origin.x);
+      const lat2 = Number(destination.y);
+      const lon2 = Number(destination.x);
+
+      const R = 6371e3; // 지구 반지름 (m)
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      // 도보 이동 거리는 도보 도로 곡률 반영하여 직선거리의 약 1.25배로 설정
+      baseDistance = Math.round(R * c * 1.25);
+
+      // 도보 경로 좌표 (직선 연결)
+      pathCoordinates = [
+        { lng: lon1, lat: lat1 },
+        { lng: lon2, lat: lat2 }
+      ];
+    } else {
+      // 2. 대중교통 / 버스 / 지하철 선택 시: 카카오 길찾기 API 호출
+      const kakaoUrl = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.x},${origin.y}&destination=${destination.x},${destination.y}`;
+      
+      const kakaoRes = await axios.get(kakaoUrl, {
+        headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` }
+      });
+
+      const routeData = kakaoRes.data.routes[0];
+      if (!routeData || routeData.result_code !== 0) {
+        return res.status(400).json({ error: '경로를 찾을 수 없습니다.' });
+      }
+
+      baseDistance = routeData.summary.distance;
+
+      // 경로 좌표 추출
+      routeData.sections.forEach(section => {
+        section.roads.forEach(road => {
+          for (let i = 0; i < road.vertexes.length; i += 2) {
+            pathCoordinates.push({
+              lng: road.vertexes[i],
+              lat: road.vertexes[i + 1]
+            });
+          }
+        });
+      });
     }
 
-    // 경로 좌표 추출
-    const pathCoordinates = [];
-    routeData.sections.forEach(section => {
-      section.roads.forEach(road => {
-        for (let i = 0; i < road.vertexes.length; i += 2) {
-          pathCoordinates.push({
-            lng: road.vertexes[i],
-            lat: road.vertexes[i + 1]
-          });
-        }
-      });
-    });
-
-    const baseDistance = routeData.summary.distance; // 미터(m) 단위
-    
-    // ★ 선택한 이동 수단에 따른 기준 소요 시간 동적 산출
+    // 선택한 이동 수단에 따른 기준 소요 시간 동적 산출
     const baseDuration = calculateBaseDuration(baseDistance, transportType);
 
     const transportLabel = 
@@ -121,7 +156,6 @@ app.post('/api/routes', async (req, res) => {
       {
         id: 'B',
         name: `편한 길 (${transportLabel})`,
-        // 계단/경사를 피하는 우회 경로 시 소요 시간 증대
         time: transportType === 'walk' ? Math.round(baseDuration * 1.2) + 2 : baseDuration + 6,
         distance: baseDistance + 180,
         hasStairs: false,
@@ -159,5 +193,6 @@ app.post('/api/routes', async (req, res) => {
   }
 });
 
+// Render 배포 환경 포트 처리
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
